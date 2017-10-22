@@ -1,0 +1,62 @@
+# Maintainer: Andy Li <andy@onthewings.net>
+
+_realname=neko
+pkgbase="mingw-w64-${_realname}"
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=2.1.0
+pkgrel=1
+pkgdesc="Embedded scripting language and virtual machine (mingw-w64)"
+arch=('any')
+license=('MIT' 'LGPL')
+url="http://nekovm.org"
+depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs")
+options=('!strip' 'staticlibs' '!makeflags')
+makedepends=(
+  "${MINGW_PACKAGE_PREFIX}-gcc"
+  "${MINGW_PACKAGE_PREFIX}-cmake"
+  "${MINGW_PACKAGE_PREFIX}-pkg-config"
+  "${MINGW_PACKAGE_PREFIX}-gc"
+  "${MINGW_PACKAGE_PREFIX}-libmariadbclient"
+  "${MINGW_PACKAGE_PREFIX}-mbedtls"
+  "${MINGW_PACKAGE_PREFIX}-pcre"
+  "${MINGW_PACKAGE_PREFIX}-sqlite3"
+  "${MINGW_PACKAGE_PREFIX}-zlib"
+)
+source=(
+  "http://nekovm.org/media/neko-${pkgver}-src.tar.gz"
+  "001-neko-2.1.0-enable_static_deps_none.patch"
+)
+sha256sums=(
+  '0c93d5fe96240510e2d1975ae0caa9dd8eadf70d916a868684f66a099a4acf96'
+  '97264ea38212ced9a84946719f43c4ee32ee1d1941ebf0143ae61cf535aecce4'
+)
+
+prepare() {
+  cd "${srcdir}/neko-${pkgver}-src"
+  patch -i "${srcdir}/001-neko-2.1.0-enable_static_deps_none.patch"
+}
+
+build() {
+  [[ -d "${srcdir}/build-${MINGW_CHOST}" ]] && rm -rf "${srcdir}/build-${MINGW_CHOST}"
+  cp -rf "${srcdir}/neko-${pkgver}-src" "${srcdir}/build-${MINGW_CHOST}"
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
+  "${MINGW_PREFIX}/bin/cmake.exe" \
+    -G"MSYS Makefiles" \
+    -DCMAKE_INSTALL_PREFIX="${MINGW_PREFIX}" \
+    -DCMAKE_BUILD_TYPE=RELEASE \
+    -DWITH_NDLLS="std.ndll;zlib.ndll;mysql.ndll;mysql5.ndll;regexp.ndll;sqlite.ndll;ui.ndll;ssl.ndll" \
+    -DSTATIC_DEPS=none \
+    .
+  make
+}
+
+check() {
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  make test
+}
+
+package() {
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  make DESTDIR="${pkgdir}" -j1 install
+}
